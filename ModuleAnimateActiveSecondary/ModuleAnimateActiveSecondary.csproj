@@ -50,7 +50,6 @@
       <DependentUpon>AssemblyVersion.tt</DependentUpon>
     </Compile>
     <Compile Include="InstallChecker.cs" />
-    <Compile Include="LoadSave.cs" />
     <Compile Include="ModuleAnimateActiveSecondary.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

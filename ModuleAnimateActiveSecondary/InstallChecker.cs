@@ -40,8 +40,8 @@ namespace ModuleAnimateGenericEffects
     [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     internal class InstallChecker : MonoBehaviour
     {
-        private const string MODNAME = "ModuleAnimateGenericEffects";
-        private const string FOLDERNAME = "ModuleAnimateGenericEffects";
+        private const string MODNAME = "ModuleAnimateActiveSecondary";
+        private const string FOLDERNAME = "ModuleAnimateActiveSecondary";
         private const string EXPECTEDPATH = FOLDERNAME + "/Plugins";
 
         protected void Start()

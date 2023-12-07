@@ -39,6 +39,7 @@ namespace ModuleAnimateActiveSecondary
         {
 #if DEBUG
             Log = new Log("ModuleAnimateActiveSecondary", Log.LEVEL.INFO);
+            debug = true;
 #else
             Log = new Log("ModuleAnimateActiveSecondary.", Log.LEVEL.ERROR);
 #endif
@@ -61,11 +62,11 @@ namespace ModuleAnimateActiveSecondary
                 anim = part.FindModelAnimators(animationName).FirstOrDefault();
                 if ((object)anim == null)
                 {
-                    Log.Error("ModuleAnimateActiveSecondary: Animation not found: " + animationName);
+                    Log.Error("Start(): Animation not found: " + animationName);
                 }
                 else
                 {
-                    Log.Info("ModuleAnimateActiveSecondary.Start() - Animation found named " + animationName);
+                    Log.Info("Start() - Animation found named " + animationName);
                 }
             }
             else
@@ -95,12 +96,13 @@ namespace ModuleAnimateActiveSecondary
                 lastECamount = 1;
             if (lastECamount >= 0.001f)
             {
-                if (mag == null || mag.isDeployed)
+                if (mag == null || mag.isDeployed || !requireDeploy)
                     StartAnimation();
             }
             StartCoroutine(SlowUpdate());
 
         }
+
         IEnumerator SlowUpdate()
         {
             while (true)
@@ -119,16 +121,16 @@ namespace ModuleAnimateActiveSecondary
                 {
                     if (lastECamount < 0.001f)
                     {
-                        if (mag != null && mag.isDeployed)
+                        if ((mag != null && mag.isDeployed) || !requireDeploy)
                         {
                             StartAnimation();
                         }
                     }
                     else
                     {
-                        if (mag != null)
+                        if (mag != null || !requireDeploy)
                         {
-                            if (!mag.isDeployed)
+                            if (requireDeploy && !mag.isDeployed)
                             {
                                 StopAnimation();
                             }
@@ -149,6 +151,7 @@ namespace ModuleAnimateActiveSecondary
 
         void StopAnimation()
         {
+            Log.Info("StopAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
             anim.Stop(animationName);
             foreach (Transform f in flameOutHideTransforms)
                 f.gameObject.SetActive(false);
@@ -156,6 +159,7 @@ namespace ModuleAnimateActiveSecondary
 
         void StartAnimation()
         {
+            Log.Info("StartAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
             anim.Play(animationName);
             foreach (Transform f in flameOutHideTransforms)
                 f.gameObject.SetActive(true);

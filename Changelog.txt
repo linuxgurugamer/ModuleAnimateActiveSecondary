@@ -3,3 +3,8 @@ Changelog
 
 0.0.1.0
 	Initial release
+
+0.0.1.1
+	Fixed InstallChecker to check for correct directory
+	Updated .version file with correct version
+	Fixed issue with parts not needing to be deployed not having the transforms reenabled when pwower is back

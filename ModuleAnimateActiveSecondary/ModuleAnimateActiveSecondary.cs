@@ -20,6 +20,9 @@ namespace ModuleAnimateActiveSecondary
         public string requireResource = null;
 
         [KSPField]
+        public string flameoutResource = null;
+
+        [KSPField]
         public string flameoutHideTransform = null;
 
         [KSPField]
@@ -27,8 +30,9 @@ namespace ModuleAnimateActiveSecondary
 
 
         internal static Log Log = null;
-        internal static int resID = -1;
-        double lastECamount = 0;
+        internal static int? resID = null;
+        internal static int? flameoutResID = null;
+        double lastResAmount = 0, lastFlameoutResAmount = 0;
         protected Animation anim;
         public Transform[] flameOutHideTransforms { get; private set; }
 
@@ -79,9 +83,6 @@ namespace ModuleAnimateActiveSecondary
             if (requireDeploy)
                 mag = part.FindModuleImplementing<ModuleAnimationGroup>();
 
-#if DEBUG
-            DumpConfig();
-#endif
             if (requireResource != null)
             {
                 PartResourceDefinition resource = PartResourceLibrary.Instance.GetDefinition(requireResource);
@@ -90,15 +91,47 @@ namespace ModuleAnimateActiveSecondary
                 else
                     Log.Error("Resource: " + requireResource + " not found");
             }
-            if (resID > 0)
-                vessel.GetConnectedResourceTotals(resID, out lastECamount, out double maxAmount);
+
+            if (flameoutResource == null)
+                flameoutResource = requireResource;
+            if (flameoutResource != null)
+            {
+                PartResourceDefinition flameoutResPRD = PartResourceLibrary.Instance.GetDefinition(flameoutResource);
+                if (flameoutResPRD != null)
+                    flameoutResID = flameoutResPRD.id;
+                else
+                    Log.Error("Resource: " + flameoutResource + " not found");
+            }
+
+#if DEBUG
+            DumpConfig();
+#endif
+
+            ///
+            // Work on the Resource here
+            ///
+            if (resID != null)
+                vessel.GetConnectedResourceTotals((int)resID, out lastResAmount, out double maxAmount);
             else
-                lastECamount = 1;
-            if (lastECamount >= 0.001f)
+                lastResAmount = 1;
+            if (lastResAmount >= 0.001f)
             {
                 if (mag == null || mag.isDeployed || !requireDeploy)
                     StartAnimation();
             }
+
+            ///
+            // Work on the Flameout Resource here
+            //
+            if (flameoutResID != null)
+                vessel.GetConnectedResourceTotals((int)flameoutResID, out lastFlameoutResAmount, out double maxAmount);
+            else
+                lastFlameoutResAmount = 1;
+            if (lastFlameoutResAmount >= 0.001f)
+            {
+                ShowFlameoutAnimation();
+            }
+
             StartCoroutine(SlowUpdate());
 
         }
@@ -107,19 +140,29 @@ namespace ModuleAnimateActiveSecondary
         {
             while (true)
             {
-                double amount = 1;
-                if (resID > 0)
-                    vessel.GetConnectedResourceTotals(resID, out amount, out double maxAmount);
-                if (amount < 0.001f)
+                ///
+                // First get the amount of the resources
+                ///
+                double resAmount = 1, flameoutResAmt = 1;
+                if (resID != null)
+                    vessel.GetConnectedResourceTotals((int)resID, out resAmount, out double maxAmount);
+                if (flameoutResID != null)
+                    vessel.GetConnectedResourceTotals((int)flameoutResID, out flameoutResAmt, out double maxAmount);
+
+                ///
+                // Work on the Resource here
+                ///
+
+                if (resAmount < 0.001f)
                 {
-                    if (lastECamount >= 0.001f)
+                    if (lastResAmount >= 0.001f)
                     {
                         StopAnimation();
                     }
                 }
                 else
                 {
-                    if (lastECamount < 0.001f)
+                    if (lastResAmount < 0.001f)
                     {
                         if ((mag != null && mag.isDeployed) || !requireDeploy)
                         {
@@ -144,7 +187,46 @@ namespace ModuleAnimateActiveSecondary
                         }
                     }
                 }
-                lastECamount = amount;
+
+                ///
+                // Work on the Flameout Resource here
+                //
+
+                if (flameoutResAmt < 0.001f)
+                {
+                    if (lastFlameoutResAmount >= 0.001f)
+                        HideFlameoutAnimation();
+                }
+                else
+                {
+                    if (lastFlameoutResAmount < 0.001f)
+                    {
+                        if ((mag != null && mag.isDeployed) || !requireDeploy)
+                        {
+                            ShowFlameoutAnimation();
+                        }
+                    }
+                    else
+                    {
+                        if (mag != null || !requireDeploy)
+                        {
+                            if (requireDeploy && !mag.isDeployed)
+                            {
+                                HideFlameoutAnimation();
+                            }
+                            else
+                            {
+                                ShowFlameoutAnimation();
+                            }
+                        }
+                    }
+                }
+
+                ///
+                // Finally, save the last amounts and sleep for a second
+                //
+                lastResAmount = resAmount;
+                lastFlameoutResAmount = flameoutResAmt;
                 yield return new WaitForSeconds(1f);
             }
         }
@@ -153,6 +235,11 @@ namespace ModuleAnimateActiveSecondary
         {
             Log.Info("StopAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
             anim.Stop(animationName);
+        }
+
+        void HideFlameoutAnimation()
+        {
+            Log.Info("StopFlameoutAnimation");
             foreach (Transform f in flameOutHideTransforms)
                 f.gameObject.SetActive(false);
         }
@@ -161,6 +248,11 @@ namespace ModuleAnimateActiveSecondary
         {
             Log.Info("StartAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
             anim.Play(animationName);
+        }
+        void ShowFlameoutAnimation()
+        {
+            Log.Info("StartFlameoutAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
+            //anim.Play(animationName);
             foreach (Transform f in flameOutHideTransforms)
                 f.gameObject.SetActive(true);
         }
@@ -178,6 +270,8 @@ namespace ModuleAnimateActiveSecondary
             Log.Info("DumpConfig, animationName: " + animationName);
             Log.Info("DumpConfig, requireDeploy: " + requireDeploy);
             Log.Info("DumpConfig, requireResource: " + requireResource);
+            Log.Info("DumpConfig, flameoutResource: " + flameoutResource);
+            Log.Info("DumpConfig, flameoutResID: " + flameoutResID);
             if (flameoutHideTransform != null)
             {
                 Log.Info("DumpConfig, flameoutHideTransform: " + flameoutHideTransform + ", # transforms found: " + flameOutHideTransforms.Length);

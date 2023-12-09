@@ -19,6 +19,8 @@ MODULE
 	animationName = <string> // name of secondary active animation
 	requireDeploy = <boolean> // only play if part is deployed. Can help save performance. False by default
 	requireResource = <null> or <resourceName> // if a resource is given, stop animation when empty. Null by default.
+
+	flameoutResource = <null> or <resourceName> // If a resource is given, use this as the controlling resource for the flameoutHideTransform, otherwise use the requireResource
 	flameoutHideTransform = <null> or <transformName> // if animation stops due to requireResource, hide/disable all objects with this name, and their children. This accounts for animations of falling fluid. Not needed by animations of machinery cranking. Null by default.
 
 	debug = false

@@ -233,5 +233,4 @@ $RECYCLE.BIN/
 *.dll
 *.pdb
 .vs
-
-Sterling_Electrics
+*.zip

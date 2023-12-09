@@ -8,3 +8,6 @@ Changelog
 	Fixed InstallChecker to check for correct directory
 	Updated .version file with correct version
 	Fixed issue with parts not needing to be deployed not having the transforms reenabled when pwower is back
+
+0.0.1.2
+	Added the parameter "flameoutResource"

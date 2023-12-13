@@ -11,3 +11,12 @@ Changelog
 
 0.0.1.2
 	Added the parameter "flameoutResource"
+
+0.0.1.3
+	Simplified internal logic
+	Fixed transform not being hidden when resource went to 0
+
+0.0.1.4
+	Fixed flameoutResource on one part affecting another part 
+	Fixes animation hiding when EC goes go 0
+	Added ModuleAdnimateGauge

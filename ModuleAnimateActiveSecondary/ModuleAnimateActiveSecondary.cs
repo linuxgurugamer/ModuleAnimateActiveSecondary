@@ -3,8 +3,7 @@ using System.Linq;
 using System.Collections;
 
 using UnityEngine;
-
-
+using System.Diagnostics.Eventing.Reader;
 
 namespace ModuleAnimateActiveSecondary
 {
@@ -30,11 +29,14 @@ namespace ModuleAnimateActiveSecondary
 
 
         internal static Log Log = null;
-        internal static int? resID = null;
-        internal static int? flameoutResID = null;
+
+        internal  int? resID = null;
+        internal  int? flameoutResID = null;
         double lastResAmount = 0, lastFlameoutResAmount = 0;
+        bool flameoutAnimationVisible = true;
+
         protected Animation anim;
-        public Transform[] flameOutHideTransforms { get; private set; }
+        Transform[] flameOutHideTransforms { get; set; }
 
         ModuleAnimationGroup mag = null;
 
@@ -78,12 +80,13 @@ namespace ModuleAnimateActiveSecondary
                 Log.Info("No animation specified");
                 return;
             }
-            flameOutHideTransforms = part.FindModelTransforms(flameoutHideTransform);
+            if (flameoutHideTransform != null)
+                flameOutHideTransforms = part.FindModelTransforms(flameoutHideTransform);
 
             if (requireDeploy)
                 mag = part.FindModuleImplementing<ModuleAnimationGroup>();
 
-            if (requireResource != null)
+            if (requireResource != null && requireResource != "")
             {
                 PartResourceDefinition resource = PartResourceLibrary.Instance.GetDefinition(requireResource);
                 if (resource != null)
@@ -92,7 +95,7 @@ namespace ModuleAnimateActiveSecondary
                     Log.Error("Resource: " + requireResource + " not found");
             }
 
-            if (flameoutResource == null)
+            if (flameoutResource == null || flameoutResource == "")
                 flameoutResource = requireResource;
             if (flameoutResource != null)
             {
@@ -100,7 +103,7 @@ namespace ModuleAnimateActiveSecondary
                 if (flameoutResPRD != null)
                     flameoutResID = flameoutResPRD.id;
                 else
-                    Log.Error("Resource: " + flameoutResource + " not found");
+                    Log.Error("Flameout Resource: " + flameoutResource + " not found");
             }
 
 #if DEBUG
@@ -111,12 +114,12 @@ namespace ModuleAnimateActiveSecondary
             // Work on the Resource here
             ///
             if (resID != null)
-                vessel.GetConnectedResourceTotals((int)resID, out lastResAmount, out double maxAmount);
+                part.GetConnectedResourceTotals((int)resID, out lastResAmount, out double maxAmount);
             else
                 lastResAmount = 1;
             if (lastResAmount >= 0.001f)
             {
-                if (mag == null || mag.isDeployed || !requireDeploy)
+                if ((mag != null && mag.isDeployed) || !requireDeploy)
                     StartAnimation();
             }
 
@@ -124,14 +127,19 @@ namespace ModuleAnimateActiveSecondary
             // Work on the Flameout Resource here
             //
             if (flameoutResID != null)
-                vessel.GetConnectedResourceTotals((int)flameoutResID, out lastFlameoutResAmount, out double maxAmount);
-            else
-                lastFlameoutResAmount = 1;
-            if (lastFlameoutResAmount >= 0.001f)
             {
-                ShowFlameoutAnimation();
+                part.GetConnectedResourceTotals((int)flameoutResID, out lastFlameoutResAmount, out double maxAmount);
+                {
+                    if (lastFlameoutResAmount >= 0.001f)
+                    {
+                        ShowFlameoutTransforms();
+                    }
+                    else
+                    {
+                        HideFlameoutTransforms();
+                    }
+                }
             }
-
             StartCoroutine(SlowUpdate());
 
         }
@@ -144,82 +152,44 @@ namespace ModuleAnimateActiveSecondary
                 // First get the amount of the resources
                 ///
                 double resAmount = 1, flameoutResAmt = 1;
+
+                // Probably need to change the following from "vessel" to "part"
                 if (resID != null)
-                    vessel.GetConnectedResourceTotals((int)resID, out resAmount, out double maxAmount);
+                    part.GetConnectedResourceTotals((int)resID, out resAmount, out double maxAmount);
                 if (flameoutResID != null)
-                    vessel.GetConnectedResourceTotals((int)flameoutResID, out flameoutResAmt, out double maxAmount);
-
-                ///
-                // Work on the Resource here
-                ///
-
-                if (resAmount < 0.001f)
-                {
-                    if (lastResAmount >= 0.001f)
-                    {
-                        StopAnimation();
-                    }
-                }
-                else
-                {
-                    if (lastResAmount < 0.001f)
-                    {
-                        if ((mag != null && mag.isDeployed) || !requireDeploy)
-                        {
-                            StartAnimation();
-                        }
-                    }
-                    else
-                    {
-                        if (mag != null || !requireDeploy)
-                        {
-                            if (requireDeploy && !mag.isDeployed)
-                            {
-                                StopAnimation();
-                            }
-                            else
-                            {
-                                if (!anim.IsPlaying(animationName))
-                                {
-                                    StartAnimation();
-                                }
-                            }
-                        }
-                    }
-                }
+                    part.GetConnectedResourceTotals((int)flameoutResID, out flameoutResAmt, out double maxAmount);
 
                 ///
                 // Work on the Flameout Resource here
                 //
 
-                if (flameoutResAmt < 0.001f)
+                if (flameoutResID != null)
                 {
-                    if (lastFlameoutResAmount >= 0.001f)
-                        HideFlameoutAnimation();
-                }
-                else
-                {
-                    if (lastFlameoutResAmount < 0.001f)
+                    if (FlameoutTransformsVisible(resAmount, flameoutResID, flameoutResAmt))
                     {
-                        if ((mag != null && mag.isDeployed) || !requireDeploy)
-                        {
-                            ShowFlameoutAnimation();
-                        }
+                        ShowFlameoutTransforms();
+
+                        ///
+                        // Work on the Resource here
+                        ///
+
+                        if (AnimationActive(resAmount, resID, resAmount))
+                            StartAnimation();
+                        else
+                            StopAnimation();
                     }
                     else
                     {
-                        if (mag != null || !requireDeploy)
-                        {
-                            if (requireDeploy && !mag.isDeployed)
-                            {
-                                HideFlameoutAnimation();
-                            }
-                            else
-                            {
-                                ShowFlameoutAnimation();
-                            }
-                        }
+                        HideFlameoutTransforms();
+                        StopAnimation();
                     }
+                } else
+                {
+                    if (AnimationActive(resAmount, resID, resAmount))
+                        StartAnimation();
+                    else
+                        StopAnimation();
+
                 }
 
                 ///
@@ -231,30 +201,107 @@ namespace ModuleAnimateActiveSecondary
             }
         }
 
-        void StopAnimation()
+        /// 
+        /// The logic for whether the animation is active and the FlameoutTransforms are visible
+        /// is controlled by the following two methods
+        /// 
+        bool AnimationActive(double resAmount, int? flameoutResId, double flameoutResAmt)
         {
-            Log.Info("StopAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
-            anim.Stop(animationName);
+            bool rc;
+            if (resAmount < 0.001f)
+            {
+                rc = false;
+            }
+            else
+            {
+                if ((mag != null && mag.isDeployed) || !requireDeploy)
+                {
+                    if (flameoutResID == null || flameoutResAmt > 0.001f)
+                        rc = true;
+                    else
+                        rc = false;
+                }
+                else
+                    rc = false;
+            }
+            Log.Info("AnimationActive, resAmount: " + resAmount + ", rc: " + rc);
+            return rc;
         }
 
-        void HideFlameoutAnimation()
+        bool FlameoutTransformsVisible(double resAmount, int? flameoutResId, double flameoutResAmt)
         {
-            Log.Info("StopFlameoutAnimation");
-            foreach (Transform f in flameOutHideTransforms)
-                f.gameObject.SetActive(false);
+            bool rc;
+            if (flameoutResAmt < 0.001f)
+            {
+                rc = false;
+            }
+            else
+            {
+                if ((mag != null && mag.isDeployed) || !requireDeploy)
+                    rc = true;
+                else
+                    rc = false;
+            }
+            if (flameOutHideTransforms != null && flameOutHideTransforms.Length > 0)
+            {
+                if (resAmount < 0.001f)
+                    rc = false;
+            }
+            Log.Info("FlameoutTransformsVisible, flameoutResAmt: " + flameoutResAmt + ", rc: " + rc);
+            return rc;
+        }
+
+
+        void StopAnimation()
+        {
+            if (anim.IsPlaying(animationName))
+            {
+                if (flameOutHideTransforms == null)
+                    Log.Info("StopAnimation, no flameOutHideTransforms");
+                else
+                    Log.Info("StopAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
+                anim.Stop(animationName);
+            }
+        }
+
+        void HideFlameoutTransforms()
+        {
+            Log.Info("HideFlameoutTransforms, part: " + part.name + ", flameoutAnimationVisible: " + flameoutAnimationVisible);
+            if (flameoutHideTransform != null)
+                Log.Info("part: " + part.name + ", flameoutHideTransform " + flameoutHideTransform +
+                    ", flameoutResource: " + flameoutResource);
+            if (flameOutHideTransforms != null && flameoutAnimationVisible)
+            {
+                Log.Info("StopFlameoutAnimation");
+                foreach (Transform f in flameOutHideTransforms)
+                    f.gameObject.SetActive(false);
+                flameoutAnimationVisible = false;
+            }
         }
 
         void StartAnimation()
         {
-            Log.Info("StartAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
-            anim.Play(animationName);
+            if (!anim.IsPlaying(animationName))
+            {
+                if (flameOutHideTransforms == null)
+                    Log.Info("StartAnimation, no flameOutHideTransforms");
+                else
+                    Log.Info("StartAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
+                anim.Play(animationName);
+            }
         }
-        void ShowFlameoutAnimation()
+
+        void ShowFlameoutTransforms()
         {
-            Log.Info("StartFlameoutAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
-            //anim.Play(animationName);
-            foreach (Transform f in flameOutHideTransforms)
-                f.gameObject.SetActive(true);
+            Log.Info("ShowFlameoutTransforms, flameoutAnimationVisible: " + flameoutAnimationVisible);
+            if (flameOutHideTransforms != null && !flameoutAnimationVisible)
+            {
+                Log.Info("StartFlameoutAnimation, sizeof flameOutHideTransforms: " + flameOutHideTransforms.Length);
+                //anim.Play(animationName);
+                foreach (Transform f in flameOutHideTransforms)
+                    f.gameObject.SetActive(true);
+                flameoutAnimationVisible = true;
+            }
         }
 
 #if DEBUG

@@ -1,0 +1,3 @@
+Empty ElectricCharge (required resource): Animations stop, which is ok, but battery does not hide transforms. It should hide transforms since it is set to hide when the required resource is empty, but it does not have a flameoutHideTransform key.
+
+

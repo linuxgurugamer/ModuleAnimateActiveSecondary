@@ -25,3 +25,18 @@ MODULE
 
 	debug = false
 }
+
+
+ModuleAnimateGauge
+
+A fuel gauge animator. It takes a named animation and sets the play position in accordance to the fill % of a resource that the part is holding.
+
+MODULE
+{
+	name = ModuleAnimateGauge
+	animationName = <string> // An animation.
+	gaugeResource = <string> // The resource being measured.
+	requireDeploy = <boolean> // False by default. If true then on deploy, plY the animation up from 0 at its own speed.
+
+	debug = false
+}
